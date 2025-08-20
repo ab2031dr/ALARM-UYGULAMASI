@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Akıllı Alarm — Premium Tasarım</title>
+<style>
+:root{
+  --bg:#0f1724; --card:#0b1220; --muted:#9aa4b2;
+  --accent1:#7c3aed; --accent2:#06b6d4; --glass:rgba(255,255,255,0.04);
+  --btn-shadow: 0 6px 18px rgba(4,6,23,0.45);
+}
+body{margin:0;height:100%;font-family:Inter, sans-serif;background:var(--bg);color:var(--muted);display:flex;justify-content:center;align-items:center;overflow:hidden;}
+.app{width:100%;max-width:420px;background:var(--card);border-radius:18px;overflow:hidden;box-shadow:0 20px 50px rgba(2,6,23,0.6);position:relative;}
+header{padding:18px;background:linear-gradient(90deg,var(--accent1),var(--accent2));color:white;text-align:center;}
+header h1{margin:0;font-size:18px;}
+.main{padding:14px;min-height:520px;position:relative;z-index:2;}
+.tab-pages{min-height:420px;}
+
+/* Cards */
+.card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:12px;margin-bottom:12px;border:1px solid rgba(255,255,255,0.02);}
+
+/* Inputs */
+label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted);}
+input[type=time], input[type=text], select{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;}
+.range{width:100%;}
+.row{display:flex;gap:10px;align-items:center;}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 16px;border-radius:14px;border:0;background:linear-gradient(135deg,var(--accent1),var(--accent2));color:white;cursor:pointer;box-shadow:var(--btn-shadow);transition:transform .15s,box-shadow .15s;}
+.btn:active{transform:translateY(2px);box-shadow:0 4px 12px rgba(0,0,0,0.45);}
+.ghost{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted);}
+
+/* Bottom nav */
+.bottom-nav{display:flex;height:72px;background:linear-gradient(180deg,rgba(0,0,0,0.06),transparent);align-items:center;position:relative;z-index:2;}
+.tab-btn{flex:1;padding:12px;text-align:center;color:var(--muted);cursor:pointer;border-top:3px solid transparent;transition:all .2s;border-radius:12px;}
+.tab-btn.active{color:white;border-top-color:rgba(255,255,255,0.12);background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);box-shadow:0 6px 18px rgba(0,0,0,0.25);}
+
+/* Alarms list */
+#alarmsList{max-height:260px;overflow:auto;padding-right:6px;}
+.alarm-row{display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:10px;margin-bottom:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent);}
+.alarm-info{display:flex;flex-direction:column;}
+.time{font-weight:700;font-size:18px;color:white;}
+.meta{font-size:12px;color:var(--muted);}
+
+/* days */
+.days{display:flex;gap:6px;margin-top:8px;}
+.day{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:transparent;border:1px solid rgba(255,255,255,0.03);cursor:pointer;transition:all .2s;}
+.day.active{background:linear-gradient(90deg,var(--accent1),var(--accent2));color:white;box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+
+/* Background animation */
+canvas#bgCanvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;}
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+<div class="app">
+<header><h1>Akıllı Alarm — Premium</h1></header>
+<div class="main">
+<div class="tab-pages">
+
+<!-- SET ALARM TAB -->
+<div id="tab-set" class="card page active">
+<h3 style="color:white">Alarm Kur / Düzenle</h3>
+<label>Saat</label><input type="time" id="timeInput">
+<label>Etiket</label><input type="text" id="labelInput" placeholder="Örn: Sabah Koşusu">
+<label>Tekrar (gün seç)</label>
+<div class="days" id="daysPicker">
+  <div class="day" data-day="1">Pzt</div>
+  <div class="day" data-day="2">Sal</div>
+  <div class="day" data-day="3">Çar</div>
+  <div class="day" data-day="4">Per</div>
+  <div class="day" data-day="5">Cum</div>
+  <div class="day" data-day="6">Cmt</div>
+  <div class="day" data-day="0">Paz</div>
+</div>
+<label>Ses Seç</label>
+<div class="sound-list control">
+  <label><input type="radio" name="sound" value="builtin-beep"> Klasik Beep</label>
+  <label><input type="radio" name="sound" value="chimes"> Chimes</label>
+  <label><input type="radio" name="sound" value="birds"> Birds</label>
+  <label><input type="radio" name="sound" value="custom"> Kendi Müziğim (Yükle)</label>
+  <input type="file" id="customFile" accept="audio/*" style="display:none">
+</div>
+<label>Ses Seviyesi</label><input type="range" id="volume" min="0" max="1" step="0.05" value="1" class="range">
+<label>Snooze (dk)</label>
+<select id="snoozeSelect">
+<option value="5">5</option>
+<option value="10">10</option>
+<option value="15">15</option>
+</select>
+<div style="display:flex;gap:8px;margin-top:8px">
+<button class="btn" id="saveBtn">Kaydet</button>
+<button class="btn ghost" id="previewBtn">Önizle</button>
+<button class="btn ghost" id="backBtn" style="display:none">Geri</button>
+</div>
+</div>
+
+<!-- ALARMS LIST TAB -->
+<div id="tab-list" class="card page" style="display:none">
+<h3 style="color:white">Alarmlar</h3>
+<div id="alarmsList"></div>
+<div style="display:flex;gap:8px;margin-top:8px">
+<button class="btn ghost" id="clearAll">Tümünü Sil</button>
+</div>
+</div>
+
+<!-- SETTINGS TAB -->
+<div id="tab-settings" class="card page" style="display:none">
+<h3 style="color:white">Ayarlar</h3>
+<label><input type="checkbox" id="vibrateToggle"> Titreşim</label>
+<label style="margin-top:8px">Tema
+<select id="themeSelect">
+<option value="dark">Koyu</option>
+<option value="light">Açık</option>
+</select>
+</label>
+</div>
+
+</div>
+</div>
+
+<div class="bottom-nav">
+<div class="tab-btn active" data-target="tab-set">Kur</div>
+<div class="tab-btn" data-target="tab-list">Alarmlar</div>
+<div class="tab-btn" data-target="tab-settings">Ayarlar</div>
+</div>
+</div>
+
+<script>
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+btn.addEventListener('click', ()=>{
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.page').forEach(p=>p.style.display='none');
+  document.getElementById(btn.dataset.target).style.display='block';
+});
+});
+
+// Days picker
+document.querySelectorAll('#daysPicker .day').forEach(d=>{
+d.addEventListener('click', ()=>{ d.classList.toggle('active'); });
+});
+
+// Alarm logic
+let alarms = JSON.parse(localStorage.getItem('alarms_v2')||'[]');
+const alarmsListEl = document.getElementById('alarmsList');
+let editIndex = null;
+
+function persist(){ localStorage.setItem('alarms_v2',JSON.stringify(alarms)); }
+
+function render(){
+  alarmsListEl.innerHTML='';
+  if(alarms.length===0) alarmsListEl.innerHTML='<div style="color:var(--muted)">Henüz alarm yok.</div>';
+  alarms.forEach((a,i)=>{
+    const row=document.createElement('div'); row.className='alarm-row';
+    const info=document.createElement('div'); info.className='alarm-info';
+    const t=document.createElement('div'); t.className='time'; t.textContent=a.time;
+    const m=document.createElement('div'); m.className='meta';
+    const daysText=a.days && a.days.length? a.days.map(d=>['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'][d]).join(', '):'Tek seferlik';
+    m.textContent=`${a.label} • ${daysText}`;
+    info.appendChild(t); info.appendChild(m);
+    row.appendChild(info);
+
+    // Buttons
+    const btns=document.createElement('div');
+    const editBtn=document.createElement('button'); editBtn.textContent='Düzenle'; editBtn.className='btn ghost';
+    const delBtn=document.createElement('button'); delBtn.textContent='Sil'; delBtn.className='btn ghost';
+    editBtn.addEventListener('click', ()=>editAlarm(i));
+    delBtn.addEventListener('click', ()=>{ alarms.splice(i,1); persist(); render(); });
+    btns.appendChild(editBtn); btns.appendChild(delBtn);
+    row.appendChild(btns);
+
+    alarmsListEl.appendChild(row);
+  });
+}
+render();
+
+document.getElementById('saveBtn').addEventListener('click', ()=>{
+  const time=document.getElementById('timeInput').value;
+  const label=document.getElementById('labelInput').value;
+  const days=[...document.querySelectorAll('#daysPicker .day.active')].map(d=>parseInt(d.dataset.day));
+  const sound=document.querySelector('input[name="sound"]:checked')?.value||'builtin-beep';
+  const volume=parseFloat(document.getElementById('volume').value);
+  const snooze=parseInt(document.getElementById('snoozeSelect').value);
+
+  if(!time){ alert('Lütfen saat seçin'); return; }
+
+  const alarmObj={time,label,days,sound,volume,snooze};
+
+  if(editIndex!==null){
+    alarms[editIndex]=alarmObj;
+    editIndex=null;
+    document.getElementById('backBtn').style.display='none';
+  }else alarms.push(alarmObj);
+
+  persist(); render(); document.getElementById('tab-set').style.display='none';
+  document.getElementById('tab-list').style.display='block';
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector('[data-target="tab-list"]').classList.add('active');
+});
+
+function editAlarm(i){
+  const a=alarms[i];
+  document.getElementById('timeInput').value=a.time;
+  document.getElementById('labelInput').value=a.label;
+  document.querySelectorAll('#daysPicker .day').forEach(d=>d.classList.remove('active'));
+  a.days.forEach(d=>document.querySelector(`#daysPicker .day[data-day="${d}"]`).classList.add('active'));
+  document.querySelector(`input[name="sound"][value="${a.sound}"]`).checked=true;
+  document.getElementById('volume').value=a.volume;
+  document.getElementById('snoozeSelect').value=a.snooze;
+
+  editIndex=i;
+  document.getElementById('tab-list').style.display='none';
+  document.getElementById('tab-set').style.display='block';
+  document.getElementById('backBtn').style.display='inline-flex';
+}
+
+document.getElementById('backBtn').addEventListener('click', ()=>{
+  editIndex=null;
+  document.getElementById('tab-set').style.display='none';
+  document.getElementById('tab-list').style.display='block';
+  document.getElementById('backBtn').style.display='none';
+});
+
+document.getElementById('clearAll').addEventListener('click', ()=>{ alarms=[]; persist(); render(); });
+</script>
+
+<script>
+// Background animation
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let particles = [];
+for(let i=0;i<120;i++){
+  particles.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,r:Math.random()*3+1,dx:(Math.random()-0.5)*0.5,dy:(Math.random()-0.5)*0.5});
+}
+function animate(){
+  ctx.clearRect
+}
